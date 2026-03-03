@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Charging Station Forecaster</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold: #F8B918;
+            --gold-dark: #D99A0A;
+            --bg: #1A1A1F;
+            --surface: #22222A;
+            --surface2: #2A2A35;
+            --border: #38384A;
+            --text: #E8E8F0;
+            --text-muted: #7A7A96;
+            --text-dim: #52526A;
+            --green: #22C55E;
+            --red: #EF4444;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            padding: 1.25rem 0;
+            border-bottom: 1px solid var(--border);
+            background: rgba(26, 26, 31, 0.95);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo svg { height: 36px; width: auto; }
+
+        /* Step indicator */
+        .step-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .step-dot {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid var(--border);
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+        .step-dot.active {
+            background: var(--gold);
+            border-color: var(--gold);
+            color: #1a1a1f;
+        }
+        .step-dot.done {
+            background: var(--surface2);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .step-line {
+            width: 40px; height: 2px;
+            background: var(--border);
+            transition: background 0.3s;
+        }
+        .step-line.done { background: var(--gold); }
+        .step-label { color: var(--text-muted); font-size: 0.75rem; }
+        .step-label.active { color: var(--gold); }
+
+        /* ===== LAYOUT ===== */
+        .container { max-width: 1100px; margin: 0 auto; padding: 3rem 2rem; }
+
+        /* ===== PAGE HEADER ===== */
+        .page-hero {
+            text-align: center;
+            padding: 3.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0;
+            background: linear-gradient(180deg, rgba(248,185,24,0.04) 0%, transparent 100%);
+        }
+        .page-hero h1 {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.75rem;
+        }
+        .page-hero p {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* ===== STEP PANELS ===== */
+        .step-panel { display: none; }
+        .step-panel.active { display: block; }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        /* ===== FORM ===== */
+        .form-group { margin-bottom: 1.5rem; }
+        label {
+            display: block;
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 0.875rem 1.25rem;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: inherit;
+            color: var(--text);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(248,185,24,0.12);
+        }
+        input::placeholder { color: var(--text-dim); }
+
+        /* ===== BUTTONS ===== */
+        .btn-primary {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: #1a1a1f;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(248,185,24,0.25);
+        }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-secondary {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.04em;
+        }
+        .btn-secondary:hover {
+            border-color: var(--text-muted);
+            color: var(--text);
+        }
+        .btn-cta {
+            width: 100%;
+            padding: 1.25rem 2rem;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%);
+            color: #1a1a1f;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .btn-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(248,185,24,0.3);
+        }
+
+        /* ===== LOADING ===== */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 5rem 2rem;
+        }
+        .loading.show { display: block; }
+        .spinner {
+            width: 44px; height: 44px;
+            border: 3px solid var(--border);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1.25rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* ===== ERROR ===== */
+        .error-box { display: none; }
+        .error-inner {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 3rem 2rem;
+            text-align: center;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* ===== STATS GRID ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+            font-family: 'DM Mono', monospace;
+        }
+        .stat-value.gold { color: var(--gold); }
+        .stat-value.green { color: var(--green); }
+        .stat-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
+
+        /* ===== CHART CARD ===== */
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 1.25rem;
+        }
+
+        /* ===== CTA BANNER ===== */
+        .cta-banner {
+            background: linear-gradient(135deg, rgba(248,185,24,0.08) 0%, rgba(248,185,24,0.03) 100%);
+            border: 1px solid rgba(248,185,24,0.2);
+            border-radius: 16px;
+            padding: 2.5rem;
+            text-align: center;
+            margin-top: 2rem;
+        }
+        .cta-banner h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.75rem;
+        }
+        .cta-banner p {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+        .cta-inner { max-width: 400px; margin: 0 auto; }
+
+        /* ===== STEP 2: SLIDERS ===== */
+        .slider-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 700px) { .slider-grid { grid-template-columns: 1fr; } }
+
+        .slider-group {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+        }
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 0.75rem;
+        }
+        .slider-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+        .slider-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--gold);
+            font-family: 'DM Mono', monospace;
+        }
+        .slider-desc {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            margin-bottom: 0.75rem;
+        }
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--border);
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: var(--gold);
+            border: 2px solid var(--bg);
+            box-shadow: 0 2px 6px rgba(248,185,24,0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px;
+            border-radius: 50%;
+            background: var(--gold);
+            border: 2px solid var(--bg);
+            cursor: pointer;
+        }
+        .slider-range {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ===== P&L TABLE ===== */
+        .pl-table-wrap {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .pl-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+            min-width: 900px;
+        }
+        .pl-table th {
+            background: var(--surface2);
+            padding: 0.75rem 1rem;
+            text-align: right;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .pl-table th:first-child { text-align: left; }
+        .pl-table th.total-col {
+            color: var(--gold);
+            border-left: 1px solid var(--border);
+        }
+        .pl-table td {
+            padding: 0.6rem 1rem;
+            text-align: right;
+            border-top: 1px solid rgba(56,56,74,0.5);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .pl-table td:first-child {
+            text-align: left;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+        .pl-table td.total-col {
+            border-left: 1px solid var(--border);
+            font-weight: 600;
+        }
+        .pl-table tr.section-header td {
+            background: var(--surface2);
+            color: var(--text-dim);
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.5rem 1rem;
+            border-top: 2px solid var(--border);
+        }
+        .pl-table tr.section-header td:first-child { color: var(--text-muted); }
+        .pl-table tr.subtotal td {
+            border-top: 1px solid var(--border);
+            font-weight: 600;
+            color: var(--text);
+        }
+        .pl-table tr.grand-total td {
+            border-top: 2px solid var(--gold);
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #fff;
+            background: rgba(248,185,24,0.04);
+        }
+        .pl-table .neg { color: #F87171; }
+        .pl-table .pos { color: var(--green); }
+
+        /* ===== SUMMARY METRICS (step 2) ===== */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem 1.25rem;
+            text-align: center;
+        }
+        .metric-card.featured {
+            border-color: rgba(248,185,24,0.3);
+            background: rgba(248,185,24,0.04);
+        }
+        .metric-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+            font-family: 'DM Mono', monospace;
+        }
+        .metric-card.featured .metric-value { color: var(--gold); }
+        .metric-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; }
+
+        /* ===== STEP 2 HEADER ===== */
+        .step2-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .step2-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .site-tag {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.3rem 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .container { padding: 2rem 1rem; }
+            .header-inner { padding: 0 1rem; }
+            .step-nav .step-label { display: none; }
+            .slider-grid { grid-template-columns: 1fr; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="logo">
+            <!-- Electric Era Logo SVG -->
+            <svg width="160" height="44" viewBox="0 0 980 270" xmlns="http://www.w3.org/2000/svg">
+                <g>
+                    <path fill="#fff" d="M352.53,90h15.96v88.99h-15.96v-88.99Z"/>
+                    <path fill="#fff" d="M436.58,132.49c-2.31-5.53-5.93-9.89-10.87-13.07-4.95-3.18-10.81-4.78-17.6-4.78-6.12,0-11.61,1.4-16.47,4.21-4.86,2.81-8.63,6.68-11.31,11.63-2.68,4.95-4.02,10.56-4.02,16.84s1.34,11.92,4.02,16.91c2.68,4.99,6.49,8.86,11.44,11.63,4.94,2.76,10.64,4.15,17.09,4.15,5.28,0,9.97-.9,14.08-2.7,4.11-1.8,7.46-4.36,10.06-7.67,2.6-3.31,4.32-7.1,5.15-11.38h-16.09c-.67,2.6-2.18,4.67-4.53,6.22-2.35,1.55-5.28,2.33-8.8,2.33s-6.31-.77-8.86-2.33c-2.56-1.55-4.55-3.81-5.97-6.79-.98-2.04-1.61-4.37-1.92-6.98h46.54c1.01-6.62.36-12.7-1.95-18.23ZM392.65,138.9c.27-1.1.6-2.13,1-3.08,1.26-2.97,3.1-5.19,5.53-6.66,2.43-1.47,5.41-2.2,8.92-2.2,2.68,0,5.09.5,7.23,1.51,2.14,1.01,3.79,2.41,4.97,4.21,1.17,1.8,1.8,3.88,1.89,6.22h-29.54Z"/>
+                    <path fill="#fff" d="M459.97,175.79c-4.9-2.81-8.76-6.7-11.56-11.69-2.81-4.98-4.21-10.62-4.21-16.91s1.38-11.77,4.15-16.72c2.77-4.94,6.6-8.82,11.5-11.63,4.9-2.81,10.45-4.21,16.65-4.21,5.7,0,10.7.99,15.02,2.95,4.32,1.97,7.73,4.8,10.24,8.48,2.51,3.69,4.1,8,4.78,12.95h-15.96c-.67-3.27-2.26-5.89-4.78-7.86-2.51-1.97-5.57-2.95-9.18-2.95-3.1,0-5.89.8-8.36,2.39-2.47,1.59-4.42,3.83-5.84,6.72-1.43,2.89-2.14,6.18-2.14,9.87s.71,7,2.14,9.93c1.42,2.93,3.39,5.22,5.91,6.85,2.51,1.63,5.28,2.45,8.3,2.45,3.85,0,7.06-.96,9.62-2.89,2.55-1.93,4.13-4.57,4.71-7.92h15.96c-.67,4.61-2.35,8.76-5.03,12.44-2.68,3.69-6.2,6.6-10.56,8.74-4.36,2.14-9.26,3.21-14.71,3.21-6.2,0-11.75-1.4-16.65-4.21Z"/>
+                    <polygon fill="#fff" points="302.43 164.41 302.43 142.29 319.84 142.29 328.26 127.71 302.43 127.71 302.43 105.59 337.12 105.59 345.54 91.01 285.33 91.01 285.33 178.99 337.12 178.99 345.54 164.41 302.43 164.41"/>
+                    <path fill="#fff" d="M641.77,164.41V142.29h17.41l8.42-14.58h-25.83v-22.12h34.69l8.42-14.58h-60.07v88.98h51.79l8.42-14.58h-43.25Z"/>
+                    <path fill="#fff" d="M603.23,115.64h15.96v63.35h-15.96v-63.35ZM601.66,97.04c0,5.26,4.27,9.52,9.55,9.52s9.55-4.26,9.55-9.52c0-5.26-4.27-9.52-9.55-9.52-5.27,0-9.55,4.26-9.55,9.52Z"/>
+                    <path fill="#fff" d="M155.38,135c0,5.26-4.27,9.52-9.55,9.52s-9.55-4.26-9.55-9.52,4.27-9.52,9.55-9.52,9.55,4.26,9.55,9.52ZM184.62,135c0,5.26,4.27,9.52,9.55,9.52s9.55-4.26,9.55-9.52-4.27-9.52-9.55-9.52c-5.27,0-9.55,4.26-9.55,9.52ZM205,90h-23.35l-9.84,17.03h33.19c16.99,0,27.97,10.98,27.97,27.97s-10.98,27.97-27.97,27.97h-17.14l-9.84,17.03h26.98c26.4,0,45-18.6,45-45s-18.6-45-45-45ZM135,162.97c-16.99,0-27.97-10.98-27.97-27.97s10.98-27.97,27.97-27.97h17.14l9.84-17.03h-26.98c-26.4,0-45,18.6-45,45s18.6,45,45,45h23.35l9.84-17.03h-33.19Z"/>
+                </g>
+            </svg>
+        </div>
+        <div class="step-nav">
+            <div class="step-dot active" id="navDot1">1</div>
+            <span class="step-label active" id="navLabel1">Forecast</span>
+            <div class="step-line" id="navLine1"></div>
+            <div class="step-dot" id="navDot2">2</div>
+            <span class="step-label" id="navLabel2">P&amp;L</span>
+        </div>
+    </div>
+</header>
+
+<!-- ===== STEP 1 ===== -->
+<div id="step1" class="step-panel active">
+    <div class="page-hero">
+        <h1>EV Charging Station Forecaster</h1>
+        <p>Enter your site address to see a 10-year charging session forecast powered by Paren EV data.</p>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div class="card-title">Site Address</div>
+            <div class="card-subtitle">Include city and state for best results</div>
+            <form id="forecastForm">
+                <div class="form-group">
+                    <label for="address">Address</label>
+                    <input type="text" id="address" placeholder="123 Main Street, San Francisco, CA" required autocomplete="off">
+                </div>
+                <button type="submit" class="btn-primary">Generate Forecast →</button>
+            </form>
+        </div>
+
+        <div class="loading" id="loading1">
+            <div class="spinner"></div>
+            <p>Analyzing location and comparable stations…</p>
+        </div>
+
+        <div class="error-box" id="errorBox1">
+            <div class="error-inner">
+                <div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>
+                <h3 style="font-size:1.4rem;color:#fff;font-weight:600;margin-bottom:0.75rem;" id="errorTitle1">Error</h3>
+                <p style="color:var(--text-muted);margin-bottom:1.5rem;" id="errorDesc1">An error occurred.</p>
+                <button class="btn-secondary" onclick="document.getElementById('errorBox1').style.display='none';document.getElementById('address').focus();">Try Another Address</button>
+            </div>
+        </div>
+
+        <div id="step1Results" style="display:none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Sessions / Day</div>
+                    <div class="stat-value gold" id="s1DailySessions">--</div>
+                    <div class="stat-sub">Year 1 baseline</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Year 1 Sessions</div>
+                    <div class="stat-value" id="s1Year1">--</div>
+                    <div class="stat-sub">annual total</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Year 10 Sessions</div>
+                    <div class="stat-value" id="s1Year10">--</div>
+                    <div class="stat-sub">projected annual</div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">Site Location</div>
+                <div id="map" style="height:380px;border-radius:8px;overflow:hidden;"></div>
+                <p style="margin-top:0.75rem;font-size:0.82rem;color:var(--text-muted);" id="mapAddress"></p>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-title">10-Year Session Projection</div>
+                <canvas id="sessionChart"></canvas>
+            </div>
+
+            <div class="cta-banner">
+                <div class="cta-inner">
+                    <h3>Ready to see the financials?</h3>
+                    <p>Build a full P&amp;L with your custom assumptions — pricing, CapEx, and operating costs.</p>
+                    <button class="btn-cta" id="goToPLBtn">Create a P&amp;L →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== STEP 2 ===== -->
+<div id="step2" class="step-panel">
+    <div class="page-hero">
+        <h1>10-Year P&amp;L Model</h1>
+        <p>Adjust inputs below — the model updates instantly.</p>
+    </div>
+
+    <div class="container">
+        <div class="step2-header">
+            <button class="btn-secondary" id="backToForecastBtn">← Back to Forecast</button>
+            <span class="site-tag" id="s2SiteLabel">—</span>
+        </div>
+
+        <!-- Sliders -->
+        <div class="card">
+            <div class="card-title">Operating Assumptions</div>
+            <div class="card-subtitle">Year 1 values — projections grow 10% annually with 3% price inflation</div>
+            <div class="slider-grid">
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Sessions / Day</span>
+                        <span class="slider-value" id="valSPD">--</span>
+                    </div>
+                    <div class="slider-desc">Baseline daily charging sessions (Year 1)</div>
+                    <input type="range" id="sliderSPD" min="5" max="100" step="1" value="20">
+                    <div class="slider-range"><span>5</span><span>100</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Charging Price</span>
+                        <span class="slider-value" id="valChargingPrice">$0.50</span>
+                    </div>
+                    <div class="slider-desc">Price charged to customers ($/kWh)</div>
+                    <input type="range" id="sliderChargingPrice" min="0.25" max="0.75" step="0.01" value="0.50">
+                    <div class="slider-range"><span>$0.25</span><span>$0.75</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Electricity Cost</span>
+                        <span class="slider-value" id="valElecPrice">$0.15</span>
+                    </div>
+                    <div class="slider-desc">Your utility cost ($/kWh)</div>
+                    <input type="range" id="sliderElecPrice" min="0.05" max="0.30" step="0.01" value="0.15">
+                    <div class="slider-range"><span>$0.05</span><span>$0.30</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Hardware Cost</span>
+                        <span class="slider-value" id="valHardware">$200k</span>
+                    </div>
+                    <div class="slider-desc">Upfront hardware CapEx</div>
+                    <input type="range" id="sliderHardware" min="150000" max="750000" step="5000" value="200000">
+                    <div class="slider-range"><span>$150k</span><span>$750k</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Design &amp; EPC Cost</span>
+                        <span class="slider-value" id="valDesign">$60k</span>
+                    </div>
+                    <div class="slider-desc">Upfront design and EPC CapEx</div>
+                    <input type="range" id="sliderDesign" min="30000" max="100000" step="1000" value="60000">
+                    <div class="slider-range"><span>$30k</span><span>$100k</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Construction Cost</span>
+                        <span class="slider-value" id="valConstruction">$60k</span>
+                    </div>
+                    <div class="slider-desc">Upfront construction CapEx</div>
+                    <input type="range" id="sliderConstruction" min="30000" max="100000" step="1000" value="60000">
+                    <div class="slider-range"><span>$30k</span><span>$100k</span></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Summary metrics -->
+        <div class="metrics-grid" id="metricsGrid">
+            <div class="metric-card featured">
+                <div class="metric-label">10-Year IRR</div>
+                <div class="metric-value" id="m_irr">--</div>
+                <div class="metric-sub">internal rate of return</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Breakeven</div>
+                <div class="metric-value" id="m_breakeven">--</div>
+                <div class="metric-sub">years to payback</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total CapEx</div>
+                <div class="metric-value" id="m_capex">--</div>
+                <div class="metric-sub">upfront investment</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">10-Year Revenue</div>
+                <div class="metric-value" id="m_revenue">--</div>
+                <div class="metric-sub">gross charging revenue</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">10-Year Net Profit</div>
+                <div class="metric-value" id="m_profit">--</div>
+                <div class="metric-sub">after all costs</div>
+            </div>
+        </div>
+
+        <!-- P&L Table -->
+        <div class="chart-card">
+            <div class="chart-title">Annual P&amp;L Summary</div>
+            <div class="pl-table-wrap">
+                <table class="pl-table" id="plTable">
+                    <thead>
+                        <tr id="plTableHead">
+                            <!-- JS-generated -->
+                        </tr>
+                    </thead>
+                    <tbody id="plTableBody">
+                        <!-- JS-generated -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div style="padding: 1rem 0; font-size: 0.78rem; color: var(--text-dim); text-align: center;">
+            This model is for illustrative purposes only. Actual results will vary based on site conditions, utility rates, and real-world demand. Not a guarantee of financial performance.
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== CONSTANTS FROM XLS =====
+const KWH_PER_SESSION = 35;
+const UPTIME = 0.995;
+const PAYMENT_PROCESSING_FEE = 0.065;
+const SESSION_GROWTH_RATE = 0.10;
+const PRICE_INFLATION = 0.03;
+const COMPLIANCE_FEES_ANNUAL = 550; // ~$137.5/qtr × 4
+const OPS_EXPENSES_ANNUAL = 18000; // Annual operations & experiences (from XLS)
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwdb7Q3odA0ogtcyhUOCMihH5JzGR4ZzwGSkzZmJBd48JmgAnpINa47vs8PE7YtoTf0zA/exec';
+
+// ===== STATE =====
+let hexagonData = null;
+let map = null;
+let lastAddress = '';
+let lastHexagon = null;
+let sessionChart = null;
+let forecastDailySessions = 20;
+
+// ===== FORMATTERS =====
+function fmtCurrency(v) {
+    const abs = Math.abs(v);
+    let s;
+    if (abs >= 1000000) s = '$' + (v/1000000).toFixed(1) + 'M';
+    else if (abs >= 1000) s = '$' + Math.round(v/1000) + 'K';
+    else s = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v);
+    return v < 0 ? s : s;
+}
+function fmtCurrencyFull(v) {
+    return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v);
+}
+function fmtNum(v) { return new Intl.NumberFormat('en-US').format(v); }
+function fmtPct(v) { return (v*100).toFixed(1)+'%'; }
+
+// ===== HEXAGON DATA =====
+async function loadHexagonData() {
+    try {
+        const resp = await fetch('https://raw.githubusercontent.com/jordanmcon/ev-charging-forecast/main/hexagon_lookup.json');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const json = await resp.json();
+        if (!json?.hexagons?.length) throw new Error('Invalid structure');
+        hexagonData = json;
+        console.log('Loaded', hexagonData.hexagons.length, 'hexagons');
+        return true;
+    } catch(e) {
+        console.warn('Hex load failed:', e.message);
+        hexagonData = null;
+        return false;
+    }
+}
+
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function findNearestHexagon(lat, lon) {
+    if (!hexagonData?.hexagons) return null;
+    let nearest = null, minDist = Infinity;
+    for (const hex of hexagonData.hexagons) {
+        try {
+            const [hLat, hLon] = h3.cellToLatLng(hex.hex_id);
+            const d = getDistance(lat, lon, hLat, hLon);
+            if (d < minDist) { minDist = d; nearest = {...hex, lat: hLat, lon: hLon}; }
+        } catch(e) {}
+    }
+    return nearest;
+}
+
+// ===== MAP =====
+async function displayMap(address) {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (!data?.length) return null;
+        const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+        document.getElementById('mapAddress').textContent = data[0].display_name + ' • 1-mile radius shown';
+        if (map) { map.remove(); map = null; }
+        await new Promise(r => setTimeout(r, 100));
+        map = L.map('map', { center: [lat,lon], zoom: 13, scrollWheelZoom: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap', maxZoom: 19
+        }).addTo(map);
+        setTimeout(() => map?.invalidateSize(), 200);
+        const icon = L.divIcon({
+            className:'',
+            html:'<div style="background:#F8B918;width:22px;height:22px;border-radius:50%;border:3px solid #1A1A1F;box-shadow:0 2px 8px rgba(0,0,0,0.4);"></div>',
+            iconSize:[22,22], iconAnchor:[11,11]
+        });
+        L.marker([lat,lon],{icon}).addTo(map).bindPopup('<strong>Proposed Site</strong>');
+        L.circle([lat,lon],{radius:1609.34,color:'#F8B918',fillColor:'#F8B918',fillOpacity:0.07,weight:2,dashArray:'6,4'}).addTo(map);
+        return {lat, lon};
+    } catch(e) { return null; }
+}
+
+// ===== FORECAST STEP 1 =====
+function buildSessionProjections(dailySessions) {
+    const arr = [];
+    for (let y = 1; y <= 10; y++) {
+        arr.push(Math.round(dailySessions * 365 * Math.pow(1 + SESSION_GROWTH_RATE, y-1)));
+    }
+    return arr;
+}
+
+// ===== STEP 1 FORM =====
+document.getElementById('forecastForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const address = document.getElementById('address').value.trim();
+    if (!address) return;
+
+    const loading = document.getElementById('loading1');
+    const errBox = document.getElementById('errorBox1');
+    const results = document.getElementById('step1Results');
+
+    loading.classList.add('show');
+    errBox.style.display = 'none';
+    results.style.display = 'none';
+
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Geocode + display map
+    const coords = await displayMap(address);
+    if (!coords) {
+        loading.classList.remove('show');
+        document.getElementById('errorTitle1').textContent = 'Location Not Found';
+        document.getElementById('errorDesc1').textContent = 'We couldn\'t find that address. Please check it and try again.';
+        errBox.style.display = 'block';
+        return;
+    }
+
+    // Find hexagon
+    const hex = findNearestHexagon(coords.lat, coords.lon);
+    if (!hex) {
+        loading.classList.remove('show');
+        document.getElementById('errorTitle1').textContent = 'No Data Available';
+        document.getElementById('errorDesc1').textContent = 'We don\'t have coverage data for this location yet.';
+        errBox.style.display = 'block';
+        return;
+    }
+
+    lastAddress = address;
+    lastHexagon = hex;
+    forecastDailySessions = Math.max(5, Math.min(100, Math.round(hex.daily_sessions)));
+
+    const projections = buildSessionProjections(forecastDailySessions);
+
+    // Update stats
+    document.getElementById('s1DailySessions').textContent = forecastDailySessions;
+    document.getElementById('s1Year1').textContent = fmtNum(projections[0]);
+    document.getElementById('s1Year10').textContent = fmtNum(projections[9]);
+
+    // Session chart
+    if (sessionChart) sessionChart.destroy();
+    const ctx = document.getElementById('sessionChart').getContext('2d');
+    sessionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length:10},(_,i)=>`Year ${i+1}`),
+            datasets: [{
+                label: 'Annual Sessions',
+                data: projections,
+                borderColor: '#F8B918',
+                backgroundColor: 'rgba(248,185,24,0.08)',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#F8B918',
+                pointRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: { callback: v => fmtNum(v), color: '#7A7A96', font:{size:11} },
+                    grid: { color: 'rgba(56,56,74,0.5)' }
+                },
+                x: { ticks: { color: '#7A7A96', font:{size:11} }, grid: { display: false } }
+            }
+        }
+    });
+
+    loading.classList.remove('show');
+    results.style.display = 'block';
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Track
+    try {
+        fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST', mode: 'no-cors',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({address, dailySessions: forecastDailySessions, hexId: hex.hex_id})
+        });
+    } catch(e) {}
+});
+
+// ===== STEP NAV =====
+function goToStep2() {
+    document.getElementById('step1').classList.remove('active');
+    document.getElementById('step2').classList.add('active');
+    document.getElementById('navDot1').classList.remove('active');
+    document.getElementById('navDot1').classList.add('done');
+    document.getElementById('navLine1').classList.add('done');
+    document.getElementById('navDot2').classList.add('active');
+    document.getElementById('navLabel1').classList.remove('active');
+    document.getElementById('navLabel2').classList.add('active');
+
+    // Set site label
+    document.getElementById('s2SiteLabel').textContent = lastAddress || 'Custom Site';
+
+    // Set slider default to forecast sessions
+    const spdSlider = document.getElementById('sliderSPD');
+    spdSlider.value = forecastDailySessions;
+    document.getElementById('valSPD').textContent = forecastDailySessions;
+
+    computeAndRenderPL();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goToStep1() {
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('step1').classList.add('active');
+    document.getElementById('navDot1').classList.add('active');
+    document.getElementById('navDot1').classList.remove('done');
+    document.getElementById('navLine1').classList.remove('done');
+    document.getElementById('navDot2').classList.remove('active');
+    document.getElementById('navLabel1').classList.add('active');
+    document.getElementById('navLabel2').classList.remove('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.getElementById('goToPLBtn').addEventListener('click', goToStep2);
+document.getElementById('backToForecastBtn').addEventListener('click', goToStep1);
+
+// ===== SLIDERS =====
+function fmtSliderVal(id, val) {
+    switch(id) {
+        case 'sliderSPD': return String(val);
+        case 'sliderChargingPrice': return '$' + parseFloat(val).toFixed(2);
+        case 'sliderElecPrice': return '$' + parseFloat(val).toFixed(2);
+        case 'sliderHardware':
+        case 'sliderDesign':
+        case 'sliderConstruction':
+            return '$' + Math.round(val/1000) + 'k';
+    }
+    return val;
+}
+
+const sliders = ['sliderSPD','sliderChargingPrice','sliderElecPrice','sliderHardware','sliderDesign','sliderConstruction'];
+const valIds = { sliderSPD:'valSPD', sliderChargingPrice:'valChargingPrice', sliderElecPrice:'valElecPrice', sliderHardware:'valHardware', sliderDesign:'valDesign', sliderConstruction:'valConstruction' };
+
+sliders.forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', function() {
+        document.getElementById(valIds[id]).textContent = fmtSliderVal(id, this.value);
+        computeAndRenderPL();
+    });
+});
+
+// ===== P&L CALCULATION =====
+function calculateIRR(cashFlows) {
+    let rate = 0.1;
+    for (let i = 0; i < 1000; i++) {
+        let npv = 0, dnpv = 0;
+        for (let t = 0; t < cashFlows.length; t++) {
+            npv += cashFlows[t] / Math.pow(1+rate, t);
+            dnpv -= t * cashFlows[t] / Math.pow(1+rate, t+1);
+        }
+        if (Math.abs(dnpv) < 1e-12) break;
+        const newRate = rate - npv/dnpv;
+        if (Math.abs(newRate - rate) < 1e-7) { rate = newRate; break; }
+        rate = newRate;
+    }
+    return rate;
+}
+
+function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost) {
+    const totalCapEx = hardwareCost + designCost + constructionCost;
+
+    const years = [];
+    const cashFlows = [-totalCapEx]; // Year 0
+
+    for (let y = 1; y <= 10; y++) {
+        const growth = Math.pow(1 + SESSION_GROWTH_RATE, y-1);
+        const inflation = Math.pow(1 + PRICE_INFLATION, y-1);
+
+        // Sessions
+        const annualSessions = spd * 365 * growth;
+
+        // kWh delivered (accounting for uptime)
+        const kwhDelivered = annualSessions * KWH_PER_SESSION * UPTIME;
+
+        // Prices inflated
+        const adjChargingPrice = chargingPrice * inflation;
+        const adjElecCost = elecCost * inflation;
+
+        // === REVENUE ===
+        const grossChargingRevenue = kwhDelivered * adjChargingPrice;
+        const paymentProcessingFee = grossChargingRevenue * PAYMENT_PROCESSING_FEE;
+        const netChargingRevenue = grossChargingRevenue - paymentProcessingFee;
+
+        // === COSTS ===
+        // Energy: kWh drawn from grid includes ~11% round-trip loss (1/0.9 efficiency from XLS)
+        const kwhGridDraw = kwhDelivered / 0.9;
+        const energyCost = kwhGridDraw * adjElecCost;
+
+        // Operations & Experiences (annual, from XLS: $18k/yr)
+        const opsCost = OPS_EXPENSES_ANNUAL * inflation;
+
+        // Compliance / other fees (from XLS: ~$550/yr)
+        const complianceCost = COMPLIANCE_FEES_ANNUAL * inflation;
+
+        const totalOpEx = energyCost + opsCost + complianceCost;
+        const grossProfit = netChargingRevenue - totalOpEx;
+        const cashFlow = grossProfit; // No depreciation/tax (excluded per spec)
+
+        cashFlows.push(cashFlow);
+
+        years.push({
+            y,
+            annualSessions: Math.round(annualSessions),
+            grossChargingRevenue,
+            paymentProcessingFee,
+            netChargingRevenue,
+            energyCost,
+            opsCost,
+            complianceCost,
+            totalOpEx,
+            grossProfit,
+            cashFlow
+        });
+    }
+
+    // IRR
+    const irr = calculateIRR(cashFlows);
+
+    // Breakeven
+    let cumCF = -totalCapEx;
+    let breakeven = null;
+    for (let i = 1; i < cashFlows.length; i++) {
+        const prev = cumCF;
+        cumCF += cashFlows[i];
+        if (cumCF >= 0 && breakeven === null) {
+            const frac = -prev / cashFlows[i];
+            breakeven = (i-1) + frac;
+        }
+    }
+
+    return { years, totalCapEx, irr, breakeven };
+}
+
+function computeAndRenderPL() {
+    const spd = parseInt(document.getElementById('sliderSPD').value);
+    const chargingPrice = parseFloat(document.getElementById('sliderChargingPrice').value);
+    const elecCost = parseFloat(document.getElementById('sliderElecPrice').value);
+    const hardwareCost = parseFloat(document.getElementById('sliderHardware').value);
+    const designCost = parseFloat(document.getElementById('sliderDesign').value);
+    const constructionCost = parseFloat(document.getElementById('sliderConstruction').value);
+
+    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost);
+    const { years, totalCapEx, irr, breakeven } = result;
+
+    // Summary metrics
+    const totalRevenue = years.reduce((s,y) => s + y.grossChargingRevenue, 0);
+    const totalNetRevenue = years.reduce((s,y) => s + y.netChargingRevenue, 0);
+    const totalOpEx = years.reduce((s,y) => s + y.totalOpEx, 0);
+    const totalNetProfit = years.reduce((s,y) => s + y.cashFlow, 0);
+
+    document.getElementById('m_irr').textContent = isFinite(irr) ? (irr*100).toFixed(1)+'%' : 'N/A';
+    document.getElementById('m_irr').className = 'metric-value' + (irr > 0 ? ' gold' : '');
+    document.getElementById('m_breakeven').textContent = breakeven !== null ? breakeven.toFixed(1)+'y' : '>10y';
+    document.getElementById('m_capex').textContent = fmtCurrency(totalCapEx);
+    document.getElementById('m_revenue').textContent = fmtCurrency(totalRevenue);
+    document.getElementById('m_profit').textContent = fmtCurrency(totalNetProfit);
+
+    // P&L Table
+    const thead = document.getElementById('plTableHead');
+    const tbody = document.getElementById('plTableBody');
+
+    // Headers
+    let thHTML = '<th>Line Item</th>';
+    for (let y = 1; y <= 10; y++) thHTML += `<th>Yr ${y}</th>`;
+    thHTML += '<th class="total-col">Total</th>';
+    thead.innerHTML = thHTML;
+
+    // Row builder
+    function row(label, vals, cls='', fmt=fmtCurrencyFull) {
+        let html = `<tr class="${cls}"><td>${label}</td>`;
+        let total = 0;
+        for (const v of vals) {
+            const formatted = typeof v === 'number' ? fmt(v) : v;
+            const colorClass = typeof v === 'number' ? (v < 0 ? ' class="neg"' : '') : '';
+            html += `<td${colorClass}>${formatted}</td>`;
+            if (typeof v === 'number') total += v;
+        }
+        const totalFormatted = fmt(total);
+        const totalColorClass = total < 0 ? ' class="neg total-col"' : ' class="total-col"';
+        html += `<td${totalColorClass}>${totalFormatted}</td></tr>`;
+        return html;
+    }
+    function sectionRow(label) {
+        return `<tr class="section-header"><td colspan="13">${label}</td></tr>`;
+    }
+
+    let html = '';
+
+    // Sessions row
+    html += sectionRow('VOLUME');
+    html += row('Sessions / Day', years.map(y => y.annualSessions / 365), '', v => fmtNum(Math.round(v)));
+    html += row('Annual Sessions', years.map(y => y.annualSessions), '', fmtNum);
+
+    // Revenue
+    html += sectionRow('REVENUE');
+    html += row('Gross Charging Revenue', years.map(y => y.grossChargingRevenue));
+    html += row('Payment Processing Fee (6.5%)', years.map(y => -y.paymentProcessingFee), 'neg-row');
+    html += row('Net Charging Revenue', years.map(y => y.netChargingRevenue), 'subtotal');
+
+    // Costs
+    html += sectionRow('OPERATING COSTS');
+    html += row('Energy Cost', years.map(y => -y.energyCost));
+    html += row('Operations & Experiences', years.map(y => -y.opsCost));
+    html += row('Compliance & Other Fees', years.map(y => -y.complianceCost));
+    html += row('Total Operating Costs', years.map(y => -y.totalOpEx), 'subtotal');
+
+    // Profit
+    html += sectionRow('PROFIT');
+    html += row('Gross Profit', years.map(y => y.cashFlow), 'grand-total');
+
+    // CapEx row
+    html += sectionRow('CAPEX');
+    const capexRow = years.map((y,i) => i === 0 ? -totalCapEx : 0);
+    html += row('Total CapEx (Year 0)', capexRow);
+
+    // Cumulative CF
+    html += sectionRow('CASH FLOW');
+    let cum = -totalCapEx;
+    const cumCFs = years.map(y => { cum += y.cashFlow; return cum; });
+    html += row('Cumulative Free Cash Flow', cumCFs, 'grand-total');
+
+    tbody.innerHTML = html;
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', function() {
+    loadHexagonData();
+});
+</script>
+</body>
+</html>
