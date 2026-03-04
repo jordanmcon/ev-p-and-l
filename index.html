@@ -889,15 +889,28 @@ function getDistance(lat1, lon1, lat2, lon2) {
 
 function findNearestHexagon(lat, lon) {
     if (!hexagonData?.hexagons) return null;
-    let nearest = null, minDist = Infinity;
-    for (const hex of hexagonData.hexagons) {
-        try {
-            const [hLat, hLon] = h3.cellToLatLng(hex.hex_id);
-            const d = getDistance(lat, lon, hLat, hLon);
-            if (d < minDist) { minDist = d; nearest = {...hex, lat: hLat, lon: hLon}; }
-        } catch(e) {}
+
+    // Build a Set of known hex IDs for O(1) lookup
+    if (!hexagonData._hexSet) {
+        hexagonData._hexSet = new Set(hexagonData.hexagons.map(h => h.hex_id));
+        hexagonData._hexMap  = new Map(hexagonData.hexagons.map(h => [h.hex_id, h]));
     }
-    return nearest;
+
+    // Determine the H3 resolution from the first hex in the dataset
+    const sampleRes = h3.getResolution(hexagonData.hexagons[0].hex_id);
+
+    // Get the H3 cell that contains the user's coordinates at that resolution
+    const cellId = h3.latLngToCell(lat, lon, sampleRes);
+
+    // Check if that exact cell exists in our dataset
+    if (hexagonData._hexSet.has(cellId)) {
+        const hex = hexagonData._hexMap.get(cellId);
+        const [hLat, hLon] = h3.cellToLatLng(cellId);
+        return { ...hex, lat: hLat, lon: hLon };
+    }
+
+    // Not within any known hexagon
+    return null;
 }
 
 // ===== MAP =====
@@ -962,12 +975,12 @@ document.getElementById('forecastForm').addEventListener('submit', async functio
         return;
     }
 
-    // Find hexagon
+   // Find hexagon
     const hex = findNearestHexagon(coords.lat, coords.lon);
     if (!hex) {
         loading.classList.remove('show');
-        document.getElementById('errorTitle1').textContent = 'No Data Available';
-        document.getElementById('errorDesc1').textContent = 'We don\'t have coverage data for this location yet.';
+        document.getElementById('errorTitle1').textContent = 'Insufficient Data';
+        document.getElementById('errorDesc1').innerHTML = 'We don\'t have coverage data for this location yet. Try another site address or contact <a href="mailto:sales@electricera.tech" style="color:var(--gold);text-decoration:none;font-weight:600;">sales@electricera.tech</a> for a consultation.';
         errBox.style.display = 'block';
         return;
     }
