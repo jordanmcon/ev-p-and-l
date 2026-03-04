@@ -1366,7 +1366,7 @@ function computeAndRenderPL() {
     thead.innerHTML = thHTML;
 
     // Row builder
-    function row(label, vals, cls='', fmt=fmtCurrencyFull) {
+    function row(label, vals, cls='', fmt=fmtCurrencyFull, noTotal=false) {
         let html = `<tr class="${cls}"><td>${label}</td>`;
         let total = 0;
         for (const v of vals) {
@@ -1375,9 +1375,13 @@ function computeAndRenderPL() {
             html += `<td${colorClass}>${formatted}</td>`;
             if (typeof v === 'number') total += v;
         }
-        const totalFormatted = fmt(total);
-        const totalColorClass = total < 0 ? ' class="neg total-col"' : ' class="total-col"';
-        html += `<td${totalColorClass}>${totalFormatted}</td></tr>`;
+        if (noTotal) {
+            html += `<td class="total-col">—</td></tr>`;
+        } else {
+            const totalFormatted = fmt(total);
+            const totalColorClass = total < 0 ? ' class="neg total-col"' : ' class="total-col"';
+            html += `<td${totalColorClass}>${totalFormatted}</td></tr>`;
+        }
         return html;
     }
     function sectionRow(label) {
@@ -1388,7 +1392,7 @@ function computeAndRenderPL() {
 
     // Sessions row
     html += sectionRow('VOLUME');
-    html += row('Sessions / Day', years.map(y => y.annualSessions / 365), '', v => fmtNum(Math.round(v)));
+    html += row('Sessions / Day', years.map(y => y.annualSessions / 365), '', v => fmtNum(Math.round(v)), true);
     html += row('Annual Sessions', years.map(y => y.annualSessions), '', fmtNum);
 
     // Revenue
