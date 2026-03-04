@@ -9,7 +9,23 @@
     <script src="https://unpkg.com/h3-js@4.1.0/dist/h3-js.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Haffer';
+            src: url('https://raw.githubusercontent.com/jordanmcon/ev-p-and-l/main/fonts/HafferThin.woff2') format('woff2');
+            font-weight: 100 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: 'Haffer';
+            src: url('https://raw.githubusercontent.com/jordanmcon/ev-p-and-l/main/fonts/HafferRegular.woff2') format('woff2');
+            font-weight: 500 900;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -28,7 +44,7 @@
         }
 
         body {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Haffer', sans-serif;
             background: var(--bg);
             color: var(--text);
             line-height: 1.6;
@@ -444,7 +460,7 @@
         }
         .pl-table td:first-child {
             text-align: left;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Haffer', sans-serif;
             font-weight: 500;
             color: var(--text-muted);
             font-size: 0.82rem;
