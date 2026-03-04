@@ -561,6 +561,65 @@
             color: var(--gold);
         }
 
+        /* ===== WHAT'S NEXT ===== */
+        .whats-next-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem 2.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .whats-next-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.75rem;
+        }
+        .whats-next-intro {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+        }
+        .whats-next-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
+        .whats-next-list li {
+            display: flex;
+            align-items: baseline;
+            gap: 0.75rem;
+            font-size: 0.9rem;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .wn-bullet {
+            color: var(--gold);
+            font-weight: 700;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            width: 1rem;
+        }
+        .whats-next-list a {
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(248, 185, 24, 0.3);
+            transition: border-color 0.2s;
+        }
+        .whats-next-list a:hover {
+            border-bottom-color: var(--gold);
+        }
+        .whats-next-cta {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+            font-style: italic;
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
             .container { padding: 2rem 1rem; }
@@ -607,7 +666,7 @@
 <div id="step1" class="step-panel active">
     <div class="page-hero">
         <h1>EV Charging Station Forecaster</h1>
-        <p>Enter your site address to see a 10-year charging session forecast powered by Paren EV data.</p>
+        <p>Enter your site address to see a 10-year charging session forecast powered by Paren EV data. Then use that forecast to generate a P&L.</p>
     </div>
 
     <div class="container">
@@ -820,6 +879,35 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <!-- What's Next -->
+        <div class="whats-next-card">
+            <div class="whats-next-title">What's next?</div>
+            <p class="whats-next-intro">There are several other factors that can impact your P&amp;L:</p>
+            <ul class="whats-next-list">
+                <li>
+                    <span class="wn-bullet">↗</span>
+                    <span><strong>Incremental retail value</strong> — <a href="https://jordanmcon.github.io/ev-charging-retail-programs/" target="_blank" rel="noopener">here's a tool to calculate the potential revenue impact</a></span>
+                </li>
+                <li>
+                    <span class="wn-bullet">↗</span>
+                    <span><strong>Grant subsidization</strong> — <a href="https://electricera.tech/government-funding" target="_blank" rel="noopener">learn more about how Electric Era can help</a></span>
+                </li>
+                <li>
+                    <span class="wn-bullet">→</span>
+                    <span><strong>Utility upgrades</strong> can be highly variable — our battery can help reduce upgrade requirements, saving costs and accelerating timelines</span>
+                </li>
+                <li>
+                    <span class="wn-bullet">→</span>
+                    <span><strong>Depreciation</strong> (and bonus depreciation) tax advantages</span>
+                </li>
+                <li>
+                    <span class="wn-bullet">→</span>
+                    <span><strong>Low Carbon Fuel Standard (LCFS)</strong> credits</span>
+                </li>
+            </ul>
+            <p class="whats-next-cta">An Electric Era representative can help you understand the total economic impact of an Electric Era EV fast charging solution.</p>
         </div>
 
         <div style="padding: 1rem 0; font-size: 0.78rem; color: var(--text-dim); text-align: center;">
