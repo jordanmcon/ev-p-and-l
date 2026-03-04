@@ -980,7 +980,7 @@ document.getElementById('forecastForm').addEventListener('submit', async functio
     if (!hex) {
         loading.classList.remove('show');
         document.getElementById('errorTitle1').textContent = 'Insufficient Data';
-        document.getElementById('errorDesc1').innerHTML = 'We don\'t have coverage data for this location yet. Try another site address or contact <a href="mailto:sales@electricera.tech" style="color:var(--gold);text-decoration:none;font-weight:600;">sales@electricera.tech</a> for a consultation.';
+        document.getElementById('errorDesc1').innerHTML = 'We don\'t have enough data for this location. Try another site address or contact <a href="mailto:sales@electricera.tech" style="color:var(--gold);text-decoration:none;font-weight:600;">sales@electricera.tech</a> for a consultation.';
         errBox.style.display = 'block';
         return;
     }
