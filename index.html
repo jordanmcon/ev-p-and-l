@@ -131,13 +131,13 @@
             margin-bottom: 1.5rem;
         }
         .card-title {
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             font-weight: 600;
             color: #fff;
             margin-bottom: 0.5rem;
         }
         .card-subtitle {
-            font-size: 1rem;
+            font-size: 0.9rem;
             color: var(--text-muted);
             margin-bottom: 1.5rem;
         }
@@ -147,7 +147,7 @@
         label {
             display: block;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.85rem;
             letter-spacing: 0.04em;
             text-transform: uppercase;
             color: var(--text-muted);
@@ -274,7 +274,7 @@
             text-align: center;
         }
         .stat-label {
-            font-size: 0.9rem;
+            font-size: 0.7rem;
             font-weight: 700;
             letter-spacing: 0.1em;
             text-transform: uppercase;
@@ -350,20 +350,20 @@
             margin-bottom: 0.75rem;
         }
         .slider-label {
-            font-size: 1rem;
+            font-size: 0.8rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
             color: var(--text-muted);
         }
         .slider-value {
-            font-size: 1.3rem;
+            font-size: 1.1rem;
             font-weight: 700;
             color: var(--gold);
             font-family: 'DM Mono', monospace;
         }
         .slider-desc {
-            font-size: 0.9rem;
+            font-size: 0.78rem;
             color: var(--text-dim);
             margin-bottom: 0.75rem;
         }
@@ -552,7 +552,7 @@
 
 <header>
     <div class="header-inner">
-           <div class="logo">
+        <div class="logo">
                 <svg width="180" height="50" viewBox="0 0 980 270" xmlns="http://www.w3.org/2000/svg">
                     <g>
                         <path fill="#fff" d="M352.53,90h15.96v88.99h-15.96v-88.99Z"/>
@@ -732,6 +732,16 @@
                     <div class="slider-desc">Upfront construction CapEx</div>
                     <input type="range" id="sliderConstruction" min="30000" max="100000" step="1000" value="60000">
                     <div class="slider-range"><span>$30k</span><span>$100k</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Demand Rate</span>
+                        <span class="slider-value" id="valDemandRate">$0.00</span>
+                    </div>
+                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by state/utility</div>
+                    <input type="range" id="sliderDemandRate" min="0" max="20" step="0.25" value="0">
+                    <div class="slider-range"><span>$0</span><span>$20/kW</span></div>
                 </div>
 
             </div>
@@ -1039,12 +1049,14 @@ function fmtSliderVal(id, val) {
         case 'sliderDesign':
         case 'sliderConstruction':
             return '$' + Math.round(val/1000) + 'k';
+        case 'sliderDemandRate':
+            return '$' + parseFloat(val).toFixed(2);
     }
     return val;
 }
 
-const sliders = ['sliderSPD','sliderChargingPrice','sliderElecPrice','sliderHardware','sliderDesign','sliderConstruction'];
-const valIds = { sliderSPD:'valSPD', sliderChargingPrice:'valChargingPrice', sliderElecPrice:'valElecPrice', sliderHardware:'valHardware', sliderDesign:'valDesign', sliderConstruction:'valConstruction' };
+const sliders = ['sliderSPD','sliderChargingPrice','sliderElecPrice','sliderHardware','sliderDesign','sliderConstruction','sliderDemandRate'];
+const valIds = { sliderSPD:'valSPD', sliderChargingPrice:'valChargingPrice', sliderElecPrice:'valElecPrice', sliderHardware:'valHardware', sliderDesign:'valDesign', sliderConstruction:'valConstruction', sliderDemandRate:'valDemandRate' };
 
 sliders.forEach(id => {
     const el = document.getElementById(id);
@@ -1071,7 +1083,26 @@ function calculateIRR(cashFlows) {
     return rate;
 }
 
-function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost) {
+// SPD → Grid Draw lookup table (from Products sheet, PN Zero 2x200kW column)
+const SPD_GRID_DRAW_TABLE = [
+    [10, 210], [20, 251], [30, 284], [40, 304],
+    [50, 319], [60, 331], [70, 343.45], [80, 356.37]
+];
+
+function interpolateGridDraw(spd) {
+    const t = SPD_GRID_DRAW_TABLE;
+    if (spd <= t[0][0]) return t[0][1];
+    if (spd >= t[t.length-1][0]) return t[t.length-1][1];
+    for (let i = 0; i < t.length - 1; i++) {
+        if (spd >= t[i][0] && spd <= t[i+1][0]) {
+            const frac = (spd - t[i][0]) / (t[i+1][0] - t[i][0]);
+            return t[i][1] + frac * (t[i+1][1] - t[i][1]);
+        }
+    }
+    return t[t.length-1][1];
+}
+
+function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate) {
     const totalCapEx = hardwareCost + designCost + constructionCost;
 
     const years = [];
@@ -1101,15 +1132,20 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
         const kwhGridDraw = kwhDelivered / 0.9;
         const energyCost = kwhGridDraw * adjElecCost;
 
+        // Demand charge: grid draw kW × demand rate ($/kW/month) × 12 months
+        // Grid draw kW interpolated from SPD lookup table (Products sheet)
+        const peakGridDrawKw = interpolateGridDraw(spd * Math.pow(1 + SESSION_GROWTH_RATE, y-1));
+        const annualDemandCharge = peakGridDrawKw * demandRate * 12;
+
         // Operations & Experiences (annual, from XLS: $18k/yr)
         const opsCost = OPS_EXPENSES_ANNUAL * inflation;
 
         // Compliance / other fees (from XLS: ~$550/yr)
         const complianceCost = COMPLIANCE_FEES_ANNUAL * inflation;
 
-        const totalOpEx = energyCost + opsCost + complianceCost;
+        const totalOpEx = energyCost + annualDemandCharge + opsCost + complianceCost;
         const grossProfit = netChargingRevenue - totalOpEx;
-        const cashFlow = grossProfit; // No depreciation/tax (excluded per spec)
+        const cashFlow = grossProfit;
 
         cashFlows.push(cashFlow);
 
@@ -1120,6 +1156,7 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
             paymentProcessingFee,
             netChargingRevenue,
             energyCost,
+            annualDemandCharge,
             opsCost,
             complianceCost,
             totalOpEx,
@@ -1153,8 +1190,9 @@ function computeAndRenderPL() {
     const hardwareCost = parseFloat(document.getElementById('sliderHardware').value);
     const designCost = parseFloat(document.getElementById('sliderDesign').value);
     const constructionCost = parseFloat(document.getElementById('sliderConstruction').value);
+    const demandRate = parseFloat(document.getElementById('sliderDemandRate').value);
 
-    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost);
+    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate);
     const { years, totalCapEx, irr, breakeven } = result;
 
     // Summary metrics
@@ -1215,6 +1253,7 @@ function computeAndRenderPL() {
     // Costs
     html += sectionRow('OPERATING COSTS');
     html += row('Energy Cost', years.map(y => -y.energyCost));
+    html += row('Demand Charges', years.map(y => -y.annualDemandCharge));
     html += row('Operations & Experiences', years.map(y => -y.opsCost));
     html += row('Compliance & Other Fees', years.map(y => -y.complianceCost));
     html += row('Total Operating Costs', years.map(y => -y.totalOpEx), 'subtotal');
