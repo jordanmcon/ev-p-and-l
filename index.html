@@ -840,7 +840,7 @@
                         <span class="slider-label">Hardware Cost</span>
                         <span class="slider-value" id="valHardware">$200k</span>
                     </div>
-                    <div class="slider-desc">Upfront hardware CapEx. A 4-port station with no battery costs about $200,000.</div>
+                    <div class="slider-desc">Upfront hardware CapEx. A 4-port station with no battery costs about $200,000. <a href="https://ev-project-intake.vercel.app/" target="_blank" style="color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(248,185,24,0.4);transition:border-color 0.2s;white-space:nowrap;">Not sure? Generate a quote</a></div>
                     <input type="range" id="sliderHardware" min="100000" max="750000" step="5000" value="200000">
                     <div class="slider-range"><span>$150k</span><span>$750k</span></div>
                 </div>
@@ -1340,7 +1340,7 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
         const annualDemandCharge = peakGridDrawKw * demandRate * 12;
 
         // Operations & Experiences (annual, from XLS: $18k/yr)
-        const opsCost = OPS_EXPENSES_ANNUAL * inflation;
+        const opsCost = OPS_EXPENSES_ANNUAL;
 
         // Compliance / other fees (from XLS: ~$550/yr)
         const complianceCost = COMPLIANCE_FEES_ANNUAL * inflation;
