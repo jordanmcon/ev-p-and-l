@@ -495,6 +495,39 @@
         .pl-table .neg { color: #F87171; }
         .pl-table .pos { color: var(--green); }
 
+        /* Section note inline with header */
+        .section-note {
+            font-size: 0.72rem;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            text-transform: none;
+            color: var(--text-muted);
+            margin-left: 0.75rem;
+            font-style: italic;
+        }
+        .section-note a {
+            color: var(--gold);
+            text-decoration: none;
+            border-bottom: 1px solid rgba(248,185,24,0.4);
+            transition: border-color 0.2s;
+        }
+        .section-note a:hover { border-bottom-color: var(--gold); }
+
+        /* Cumulative Cash Flow Chart */
+        .cashflow-chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+        }
+        .cashflow-chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 1.5rem;
+        }
+
         /* ===== SUMMARY METRICS (step 2) ===== */
         .metrics-grid {
             display: grid;
@@ -894,6 +927,12 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <!-- Cumulative Free Cash Flow Chart -->
+        <div class="cashflow-chart-card">
+            <div class="cashflow-chart-title">Cumulative Free Cash Flow</div>
+            <canvas id="cashflowChart" style="max-height:320px;"></canvas>
         </div>
 
         <!-- What's Next -->
@@ -1305,8 +1344,8 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
         // Compliance / other fees (from XLS: ~$550/yr)
         const complianceCost = COMPLIANCE_FEES_ANNUAL * inflation;
 
-        const totalOpEx = energyCost + annualDemandCharge + opsCost + complianceCost;
-        const grossProfit = netChargingRevenue - totalOpEx;
+        const totalOpEx = paymentProcessingFee + energyCost + annualDemandCharge + opsCost;
+        const grossProfit = grossChargingRevenue - totalOpEx;
         const cashFlow = grossProfit;
 
         cashFlows.push(cashFlow);
@@ -1411,18 +1450,16 @@ function computeAndRenderPL() {
     html += row('Annual Sessions', years.map(y => y.annualSessions), '', fmtNum);
 
     // Revenue
-    html += sectionRow('REVENUE');
-    html += row('Gross Charging Revenue', years.map(y => y.grossChargingRevenue));
-    html += row('Payment Processing Fee (6.5%)', years.map(y => -y.paymentProcessingFee), 'neg-row');
-    html += row('Net Charging Revenue', years.map(y => y.netChargingRevenue), 'subtotal');
+    html += sectionRow('REVENUE <span class="section-note">EV charging also drives incremental retail revenue—<a href="http://ev-charging-retail-experiences.vercel.app/" target="_blank">find out how much</a></span>');
+    html += row('Total Charging Revenue', years.map(y => y.grossChargingRevenue), 'subtotal');
 
     // Costs
     html += sectionRow('OPERATING COSTS');
+    html += row('Payment Processing Fee (6.5%)', years.map(y => -y.paymentProcessingFee), 'neg-row');
     html += row('Energy Cost', years.map(y => -y.energyCost));
     html += row('Demand Charges', years.map(y => -y.annualDemandCharge));
     html += row('Operations & Experiences', years.map(y => -y.opsCost));
-    html += row('Compliance & Other Fees', years.map(y => -y.complianceCost));
-    html += row('Total Operating Costs', years.map(y => -y.totalOpEx), 'subtotal');
+    html += row('Total Operating Costs', years.map(y => -(y.paymentProcessingFee + y.energyCost + y.annualDemandCharge + y.opsCost)), 'subtotal');
 
     // Profit
     html += sectionRow('PROFIT');
@@ -1440,6 +1477,65 @@ function computeAndRenderPL() {
     html += row('Cumulative Free Cash Flow', cumCFs, 'grand-total');
 
     tbody.innerHTML = html;
+
+    // Cumulative Free Cash Flow Chart
+    const cfLabels = years.map(y => `Year ${y.y}`);
+    let cumCFChart = -totalCapEx;
+    const cumCFData = years.map(y => { cumCFChart += y.cashFlow; return Math.round(cumCFChart); });
+
+    const cashflowCtx = document.getElementById('cashflowChart').getContext('2d');
+    if (window._cashflowChart instanceof Chart) window._cashflowChart.destroy();
+
+    window._cashflowChart = new Chart(cashflowCtx, {
+        type: 'line',
+        data: {
+            labels: cfLabels,
+            datasets: [{
+                label: 'Cumulative Free Cash Flow',
+                data: cumCFData,
+                borderColor: '#F8B918',
+                backgroundColor: 'rgba(248,185,24,0.08)',
+                borderWidth: 2.5,
+                pointBackgroundColor: cumCFData.map(v => v >= 0 ? '#22C55E' : '#EF4444'),
+                pointBorderColor: cumCFData.map(v => v >= 0 ? '#22C55E' : '#EF4444'),
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                fill: true,
+                tension: 0.35
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#22222A',
+                    borderColor: '#38384A',
+                    borderWidth: 1,
+                    titleColor: '#E8E8F0',
+                    bodyColor: '#7A7A96',
+                    callbacks: {
+                        label: ctx => ' $' + ctx.parsed.y.toLocaleString()
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(56,56,74,0.5)' },
+                    ticks: { color: '#7A7A96', font: { size: 11 } }
+                },
+                y: {
+                    grid: { color: 'rgba(56,56,74,0.5)' },
+                    ticks: {
+                        color: '#7A7A96',
+                        font: { size: 11 },
+                        callback: v => '$' + (v >= 0 ? '' : '-') + Math.abs(v / 1000).toFixed(0) + 'k'
+                    }
+                }
+            }
+        }
+    });
 }
 
 // ===== XLSX EXPORT =====
