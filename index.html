@@ -497,11 +497,11 @@
 
         /* Section note inline with header */
         .section-note {
-            font-size: 0.72rem;
+            font-size: 0.8rem;
             font-weight: 400;
             letter-spacing: 0.02em;
             text-transform: none;
-            color: var(--text-muted);
+            color: var(--text);
             margin-left: 0.75rem;
             font-style: italic;
         }
@@ -520,6 +520,7 @@
             border-radius: 14px;
             padding: 2rem;
             margin-top: 1.5rem;
+            margin-bottom: 2.5rem;
         }
         .cashflow-chart-title {
             font-size: 1rem;
@@ -861,7 +862,7 @@
                     </div>
                     <div class="slider-desc">Upfront construction CapEx. Construction costs can be significantly reduced if your site/parking lot is already under construction.</div>
                     <input type="range" id="sliderConstruction" min="30000" max="200000" step="1000" value="125000">
-                    <div class="slider-range"><span>$30k</span><span>$100k</span></div>
+                    <div class="slider-range"><span>$30k</span><span>$200k</span></div>
                 </div>
 
                 <div class="slider-group">
@@ -1455,10 +1456,10 @@ function computeAndRenderPL() {
 
     // Costs
     html += sectionRow('OPERATING COSTS');
-    html += row('Payment Processing Fee (6.5%)', years.map(y => -y.paymentProcessingFee), 'neg-row');
     html += row('Energy Cost', years.map(y => -y.energyCost));
     html += row('Demand Charges', years.map(y => -y.annualDemandCharge));
     html += row('Operations & Experiences', years.map(y => -y.opsCost));
+    html += row('Payment Processing Fee (6.5%)', years.map(y => -y.paymentProcessingFee), 'neg-row');
     html += row('Total Operating Costs', years.map(y => -(y.paymentProcessingFee + y.energyCost + y.annualDemandCharge + y.opsCost)), 'subtotal');
 
     // Profit
@@ -1522,10 +1523,12 @@ function computeAndRenderPL() {
             },
             scales: {
                 x: {
+                    title: { display: true, text: 'Year', color: '#7A7A96', font: { size: 11, weight: '600' }, padding: { top: 6 } },
                     grid: { color: 'rgba(56,56,74,0.5)' },
                     ticks: { color: '#7A7A96', font: { size: 11 } }
                 },
                 y: {
+                    title: { display: true, text: 'Cumulative Free Cash Flow ($)', color: '#7A7A96', font: { size: 11, weight: '600' }, padding: { bottom: 6 } },
                     grid: { color: 'rgba(56,56,74,0.5)' },
                     ticks: {
                         color: '#7A7A96',
