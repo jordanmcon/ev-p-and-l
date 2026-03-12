@@ -127,7 +127,7 @@
             line-height: 1.1;
             color: #fff;
             letter-spacing: -0.03em;
-            margin: 0 auto;
+            margin-bottom: 15px;
             max-width: 800px;
         }
         .page-hero p {
@@ -840,9 +840,17 @@
                         <span class="slider-label">Demand Rate</span>
                         <span class="slider-value" id="valDemandRate">$0.00</span>
                     </div>
-                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by utility. Electric Era's battery backed solution and energy management system typically mitigates about 70%.</div>
+                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by utility. Electric Era's battery backed solution and energy management system typically mitigates about 75%.</div>
                     <input type="range" id="sliderDemandRate" min="0" max="25" step="0.50" value="0">
                     <div class="slider-range"><span>$0</span><span>$25/kW</span></div>
+                </div>
+
+                <div id="batteryCheckboxRow" style="display:none;grid-column:1/-1;background:rgba(248,185,24,0.07);border:1px solid rgba(248,185,24,0.25);border-radius:10px;padding:14px 18px;align-items:center;gap:12px;">
+                    <input type="checkbox" id="chkBattery" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;" onchange="onBatteryToggle()">
+                    <label for="chkBattery" style="cursor:pointer;font-size:0.9rem;color:var(--text-primary);line-height:1.4;">
+                        <strong style="color:var(--gold);">Add a battery</strong> — Electric Era's battery energy storage system mitigates ~75% of demand charges.
+                        <span id="batteryCapexNote" style="display:none;margin-left:6px;font-size:0.82rem;color:var(--text-muted);"></span>
+                    </label>
                 </div>
 
                 <div class="slider-group">
@@ -970,7 +978,7 @@ const PAYMENT_PROCESSING_FEE = 0.065;
 const SESSION_GROWTH_RATE = 0.10;
 const PRICE_INFLATION = 0.03;
 const COMPLIANCE_FEES_ANNUAL = 550; // ~$137.5/qtr × 4
-const OPS_EXPENSES_ANNUAL = 18000; // Annual operations & experiences (from XLS)
+const OPS_EXPENSES_ANNUAL = 56000; // Annual operations & experiences
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwdb7Q3odA0ogtcyhUOCMihH5JzGR4ZzwGSkzZmJBd48JmgAnpINa47vs8PE7YtoTf0zA/exec';
 
 // ===== STATE =====
@@ -978,6 +986,8 @@ let hexagonData = null;
 let map = null;
 let lastAddress = '';
 let lastHexagon = null;
+let lastState = '';       // two-letter or full state parsed from geocode result
+let batterySelected = false;
 let sessionChart = null;
 let forecastDailySessions = 20;
 
@@ -1056,6 +1066,11 @@ async function displayMap(address) {
         if (!data?.length) return null;
         const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
         document.getElementById('mapAddress').textContent = data[0].display_name + ' • 1-mile radius shown';
+        // Parse state from Nominatim display_name (typically "..., City, State, Country")
+        const parts = data[0].display_name.split(',').map(s => s.trim());
+        // US results: state is usually the second-to-last part before "United States"
+        const usIdx = parts.findIndex(p => /united states/i.test(p));
+        lastState = usIdx > 0 ? parts[usIdx - 1] : '';
         if (map) { map.remove(); map = null; }
         await new Promise(r => setTimeout(r, 100));
         map = L.map('map', { center: [lat,lon], zoom: 13, scrollWheelZoom: false });
@@ -1254,11 +1269,53 @@ sliders.forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input', function() {
         document.getElementById(valIds[id]).textContent = fmtSliderVal(id, this.value);
+        if (id === 'sliderDemandRate') updateBatteryRow();
         computeAndRenderPL();
     });
 });
 
-// ===== P&L CALCULATION =====
+// ===== BATTERY HELPERS =====
+function getBatteryCost() {
+    const dr = parseFloat(document.getElementById('sliderDemandRate').value);
+    if (dr > 15) return { cost: 186000, label: '250 kW Battery' };
+    if (dr > 10) return { cost: 123000, label: '125 kW Battery' };
+    return null;
+}
+
+function updateBatteryRow() {
+    const dr = parseFloat(document.getElementById('sliderDemandRate').value);
+    const row = document.getElementById('batteryCheckboxRow');
+    if (dr > 10) {
+        row.style.display = 'flex';
+        const batt = getBatteryCost();
+        const note = document.getElementById('batteryCapexNote');
+        note.textContent = batt ? `Adds ${batt.label} — $${batt.cost.toLocaleString()} upfront CapEx` : '';
+        note.style.display = batt ? 'inline' : 'none';
+    } else {
+        row.style.display = 'none';
+        document.getElementById('chkBattery').checked = false;
+        batterySelected = false;
+    }
+}
+
+function onBatteryToggle() {
+    batterySelected = document.getElementById('chkBattery').checked;
+    // Update the capex note label
+    const batt = getBatteryCost();
+    const note = document.getElementById('batteryCapexNote');
+    if (batt) {
+        note.textContent = `Adds ${batt.label} — $${batt.cost.toLocaleString()} upfront CapEx`;
+        note.style.display = 'inline';
+    }
+    computeAndRenderPL();
+}
+
+// ===== LCFS HELPER =====
+function isLCFSState() {
+    const s = lastState.toLowerCase().trim();
+    return s === 'washington' || s === 'oregon' || s === 'california' ||
+           s === 'wa' || s === 'or' || s === 'ca';
+}
 function calculateIRR(cashFlows) {
     let rate = 0.1;
     for (let i = 0; i < 1000; i++) {
@@ -1294,8 +1351,13 @@ function interpolateGridDraw(spd) {
     return t[t.length-1][1];
 }
 
-function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate) {
-    const totalCapEx = hardwareCost + designCost + constructionCost;
+function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate, batteryCost, includeUtilityUpgrade, includeLCFS) {
+    const UTILITY_UPGRADE_COST = 60000;
+    const utilityUpgradeCost = includeUtilityUpgrade ? UTILITY_UPGRADE_COST : 0;
+    const totalCapEx = hardwareCost + designCost + constructionCost + (batteryCost || 0) + utilityUpgradeCost;
+
+    // If battery selected, demand charges are mitigated by 75%
+    const effectiveDemandRate = (batteryCost > 0) ? demandRate * 0.25 : demandRate;
 
     const years = [];
     const cashFlows = [-totalCapEx]; // Year 0
@@ -1318,25 +1380,26 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
         const grossChargingRevenue = kwhDelivered * adjChargingPrice;
         const paymentProcessingFee = grossChargingRevenue * PAYMENT_PROCESSING_FEE;
         const netChargingRevenue = grossChargingRevenue - paymentProcessingFee;
+        const lcfsRevenue = includeLCFS ? 20000 : 0;
 
         // === COSTS ===
         // Energy: kWh drawn from grid includes ~11% round-trip loss (1/0.9 efficiency from XLS)
         const kwhGridDraw = kwhDelivered / 0.9;
         const energyCost = kwhGridDraw * adjElecCost;
 
-        // Demand charge: grid draw kW × demand rate ($/kW/month) × 12 months
-        // Grid draw kW interpolated from SPD lookup table (Products sheet)
+        // Demand charge: grid draw kW × effective demand rate ($/kW/month) × 12 months
+        // Battery mitigates 75% of demand charges when selected
         const peakGridDrawKw = interpolateGridDraw(spd * Math.pow(1 + SESSION_GROWTH_RATE, y-1));
-        const annualDemandCharge = peakGridDrawKw * demandRate * 12;
+        const annualDemandCharge = peakGridDrawKw * effectiveDemandRate * 12;
 
-        // Operations & Experiences (annual, from XLS: $18k/yr)
+        // Operations & Experiences (annual)
         const opsCost = OPS_EXPENSES_ANNUAL;
 
-        // Compliance / other fees (from XLS: ~$550/yr)
+        // Compliance / other fees
         const complianceCost = COMPLIANCE_FEES_ANNUAL * inflation;
 
         const totalOpEx = paymentProcessingFee + energyCost + annualDemandCharge + opsCost;
-        const grossProfit = grossChargingRevenue - totalOpEx;
+        const grossProfit = grossChargingRevenue + lcfsRevenue - totalOpEx;
         const cashFlow = grossProfit;
 
         cashFlows.push(cashFlow);
@@ -1345,6 +1408,7 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
             y,
             annualSessions: Math.round(annualSessions),
             grossChargingRevenue,
+            lcfsRevenue,
             paymentProcessingFee,
             netChargingRevenue,
             energyCost,
@@ -1372,7 +1436,7 @@ function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, const
         }
     }
 
-    return { years, totalCapEx, irr, breakeven };
+    return { years, totalCapEx, hardwareCost, designCost, constructionCost, batteryCost: batteryCost || 0, utilityUpgradeCost, irr, breakeven };
 }
 
 function computeAndRenderPL() {
@@ -1384,11 +1448,16 @@ function computeAndRenderPL() {
     const constructionCost = parseFloat(document.getElementById('sliderConstruction').value);
     const demandRate = parseFloat(document.getElementById('sliderDemandRate').value);
 
-    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate);
-    const { years, totalCapEx, irr, breakeven } = result;
+    const battInfo = batterySelected ? getBatteryCost() : null;
+    const batteryCost = battInfo ? battInfo.cost : 0;
+    const batteryLabel = battInfo ? battInfo.label : '';
+    const includeLCFS = isLCFSState();
+
+    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate, batteryCost, true, includeLCFS);
+    const { years, totalCapEx, irr, breakeven, utilityUpgradeCost } = result;
 
     // Summary metrics
-    const totalRevenue = years.reduce((s,y) => s + y.grossChargingRevenue, 0);
+    const totalRevenue = years.reduce((s,y) => s + y.grossChargingRevenue + y.lcfsRevenue, 0);
     const totalNetRevenue = years.reduce((s,y) => s + y.netChargingRevenue, 0);
     const totalOpEx = years.reduce((s,y) => s + y.totalOpEx, 0);
     const totalNetProfit = years.reduce((s,y) => s + y.cashFlow, 0);
@@ -1443,6 +1512,9 @@ function computeAndRenderPL() {
     // Revenue
     html += sectionRow('REVENUE <span class="section-note">EV charging also drives incremental retail revenue—<a href="http://ev-charging-retail-experiences.vercel.app/" target="_blank">find out how much</a></span>');
     html += row('Total Charging Revenue', years.map(y => y.grossChargingRevenue), 'subtotal');
+    if (includeLCFS) {
+        html += row('LCFS Credits', years.map(() => 20000));
+    }
 
     // Costs
     html += sectionRow('OPERATING COSTS');
@@ -1461,6 +1533,10 @@ function computeAndRenderPL() {
     html += row('Hardware (Electric Era RE400 Station)', years.map((y,i) => i === 0 ? -hardwareCost : 0));
     html += row('Design &amp; EPC', years.map((y,i) => i === 0 ? -designCost : 0));
     html += row('Construction', years.map((y,i) => i === 0 ? -constructionCost : 0));
+    if (batteryCost > 0) {
+        html += row(batteryLabel, years.map((y,i) => i === 0 ? -batteryCost : 0));
+    }
+    html += row('Utility Upgrade (estimate)', years.map((y,i) => i === 0 ? -utilityUpgradeCost : 0));
     const capexRow = years.map((y,i) => i === 0 ? -totalCapEx : 0);
     html += row('Total CapEx (Year 0)', capexRow, 'subtotal');
 
