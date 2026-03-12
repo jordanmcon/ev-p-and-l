@@ -847,9 +847,8 @@
 
                 <div id="batteryCheckboxRow" style="display:none;grid-column:1/-1;background:rgba(248,185,24,0.07);border:1px solid rgba(248,185,24,0.25);border-radius:10px;padding:14px 18px;align-items:center;gap:12px;">
                     <input type="checkbox" id="chkBattery" style="width:18px;height:18px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;" onchange="onBatteryToggle()">
-                    <label for="chkBattery" style="cursor:pointer;font-size:0.9rem;color:var(--text-primary);line-height:1.4;">
-                        <strong style="color:var(--gold);">Add a battery</strong> — Electric Era's battery energy storage system mitigates ~75% of demand charges.
-                        <span id="batteryCapexNote" style="display:none;margin-left:6px;font-size:0.82rem;color:var(--text-muted);"></span>
+                    <label for="chkBattery" style="cursor:pointer;font-size:0.9rem;color:var(--text);line-height:1.1;">
+                        <strong style="color:var(--gold);">Add a battery (recommended)</strong>
                     </label>
                 </div>
 
@@ -957,6 +956,10 @@
                     <span class="wn-bullet">→</span>
                     <span><strong>Depreciation</strong> (and bonus depreciation) tax advantages</span>
                 </li>
+                <li>
+                    <span class="wn-bullet">→</span>
+                    <span><strong>Low Carbon Fuel Standard (LCFS)</strong> credits</span>
+                </li>
             </ul>
         </div>
 
@@ -1062,11 +1065,18 @@ async function displayMap(address) {
         if (!data?.length) return null;
         const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
         document.getElementById('mapAddress').textContent = data[0].display_name + ' • 1-mile radius shown';
-        // Parse state from Nominatim display_name (typically "..., City, State, Country")
+        // Parse state from Nominatim display_name (e.g. "..., Washington, 98103, United States")
+        // Scan backwards from "United States" to find the first recognized US state name,
+        // skipping ZIP codes and other tokens that may appear between state and country.
+        const US_STATES = ['alabama','alaska','arizona','arkansas','california','colorado','connecticut','delaware','florida','georgia','hawaii','idaho','illinois','indiana','iowa','kansas','kentucky','louisiana','maine','maryland','massachusetts','michigan','minnesota','mississippi','missouri','montana','nebraska','nevada','new hampshire','new jersey','new mexico','new york','north carolina','north dakota','ohio','oklahoma','oregon','pennsylvania','rhode island','south carolina','south dakota','tennessee','texas','utah','vermont','virginia','washington','west virginia','wisconsin','wyoming'];
         const parts = data[0].display_name.split(',').map(s => s.trim());
-        // US results: state is usually the second-to-last part before "United States"
         const usIdx = parts.findIndex(p => /united states/i.test(p));
-        lastState = usIdx > 0 ? parts[usIdx - 1] : '';
+        lastState = '';
+        if (usIdx > 0) {
+            for (let i = usIdx - 1; i >= 0; i--) {
+                if (US_STATES.includes(parts[i].toLowerCase())) { lastState = parts[i]; break; }
+            }
+        }
         if (map) { map.remove(); map = null; }
         await new Promise(r => setTimeout(r, 100));
         map = L.map('map', { center: [lat,lon], zoom: 13, scrollWheelZoom: false });
@@ -1527,11 +1537,12 @@ function computeAndRenderPL() {
     // CapEx rows — itemised
     html += sectionRow('CAPEX');
     html += row('Hardware (Electric Era RE400 Station)', years.map((y,i) => i === 0 ? -hardwareCost : 0));
-    html += row('Design &amp; EPC', years.map((y,i) => i === 0 ? -designCost : 0));
-    html += row('Construction', years.map((y,i) => i === 0 ? -constructionCost : 0));
     if (batteryCost > 0) {
         html += row(batteryLabel, years.map((y,i) => i === 0 ? -batteryCost : 0));
     }
+    html += row('Design &amp; EPC', years.map((y,i) => i === 0 ? -designCost : 0));
+    html += row('Construction', years.map((y,i) => i === 0 ? -constructionCost : 0));
+    
     html += row('Utility Upgrade (estimate)', years.map((y,i) => i === 0 ? -utilityUpgradeCost : 0));
     const capexRow = years.map((y,i) => i === 0 ? -totalCapEx : 0);
     html += row('Total CapEx (Year 0)', capexRow, 'subtotal');
