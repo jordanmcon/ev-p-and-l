@@ -836,6 +836,16 @@
 
                 <div class="slider-group">
                     <div class="slider-header">
+                        <span class="slider-label">Demand Rate</span>
+                        <span class="slider-value" id="valDemandRate">$0.00</span>
+                    </div>
+                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by state/utility. Electric Era's battery backed solution and energy management system typically mitigates about 70%.</div>
+                    <input type="range" id="sliderDemandRate" min="0" max="25" step="0.50" value="0">
+                    <div class="slider-range"><span>$0</span><span>$25/kW</span></div>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
                         <span class="slider-label">Hardware Cost (Electric Era RE400 Station)</span>
                         <span class="slider-value" id="valHardware">$200k</span>
                     </div>
@@ -846,12 +856,10 @@
 
                 <div class="slider-group">
                     <div class="slider-header">
-                        <span class="slider-label">Design &amp; EPC Cost</span>
-                        <span class="slider-value" id="valDesign">$75k</span>
+                        <span class="slider-label">Design &amp; EPC</span>
+                        <span class="slider-value" style="color:var(--gold);background:rgba(248,185,24,0.1);padding:2px 10px;border-radius:6px;font-size:0.85rem;font-weight:600;">$71,500</span>
                     </div>
-                    <div class="slider-desc">Upfront site design, feasibility study, and EPC service costs</div>
-                    <input type="range" id="sliderDesign" min="50000" max="100000" step="5000" value="75000">
-                    <div class="slider-range"><span>$50k</span><span>$100k</span></div>
+                    <div class="slider-desc">Fixed upfront cost covering site design, feasibility study, and EPC services. No recurring cost.</div>
                 </div>
 
                 <div class="slider-group">
@@ -862,16 +870,6 @@
                     <div class="slider-desc">Upfront construction CapEx including utility upgrades. Construction costs can be significantly reduced if your site/parking lot is already under construction.</div>
                     <input type="range" id="sliderConstruction" min="80000" max="300000" step="5000" value="125000">
                     <div class="slider-range"><span>$80k</span><span>$300k</span></div>
-                </div>
-
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <span class="slider-label">Demand Rate</span>
-                        <span class="slider-value" id="valDemandRate">$0.00</span>
-                    </div>
-                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by state/utility. Electric Era's battery backed solution and energy management system typically mitigates about 70%.</div>
-                    <input type="range" id="sliderDemandRate" min="0" max="25" step="0.50" value="0">
-                    <div class="slider-range"><span>$0</span><span>$25/kW</span></div>
                 </div>
 
             </div>
@@ -1249,7 +1247,6 @@ function fmtSliderVal(id, val) {
         case 'sliderChargingPrice': return '$' + parseFloat(val).toFixed(2);
         case 'sliderElecPrice': return '$' + parseFloat(val).toFixed(2);
         case 'sliderHardware':
-        case 'sliderDesign':
         case 'sliderConstruction':
             return '$' + Math.round(val/1000) + 'k';
         case 'sliderDemandRate':
@@ -1258,8 +1255,8 @@ function fmtSliderVal(id, val) {
     return val;
 }
 
-const sliders = ['sliderSPD','sliderChargingPrice','sliderElecPrice','sliderHardware','sliderDesign','sliderConstruction','sliderDemandRate'];
-const valIds = { sliderSPD:'valSPD', sliderChargingPrice:'valChargingPrice', sliderElecPrice:'valElecPrice', sliderHardware:'valHardware', sliderDesign:'valDesign', sliderConstruction:'valConstruction', sliderDemandRate:'valDemandRate' };
+const sliders = ['sliderSPD','sliderChargingPrice','sliderElecPrice','sliderHardware','sliderConstruction','sliderDemandRate'];
+const valIds = { sliderSPD:'valSPD', sliderChargingPrice:'valChargingPrice', sliderElecPrice:'valElecPrice', sliderHardware:'valHardware', sliderConstruction:'valConstruction', sliderDemandRate:'valDemandRate' };
 
 sliders.forEach(id => {
     const el = document.getElementById(id);
@@ -1391,7 +1388,7 @@ function computeAndRenderPL() {
     const chargingPrice = parseFloat(document.getElementById('sliderChargingPrice').value);
     const elecCost = parseFloat(document.getElementById('sliderElecPrice').value);
     const hardwareCost = parseFloat(document.getElementById('sliderHardware').value);
-    const designCost = parseFloat(document.getElementById('sliderDesign').value);
+    const designCost = 71500; // Fixed: Design & EPC
     const constructionCost = parseFloat(document.getElementById('sliderConstruction').value);
     const demandRate = parseFloat(document.getElementById('sliderDemandRate').value);
 
@@ -1467,10 +1464,13 @@ function computeAndRenderPL() {
     html += sectionRow('PROFIT');
     html += row('Gross Profit', years.map(y => y.cashFlow), 'grand-total');
 
-    // CapEx row
+    // CapEx rows — itemised
     html += sectionRow('CAPEX');
+    html += row('Hardware (Electric Era RE400 Station)', years.map((y,i) => i === 0 ? -hardwareCost : 0));
+    html += row('Design &amp; EPC', years.map((y,i) => i === 0 ? -designCost : 0));
+    html += row('Construction', years.map((y,i) => i === 0 ? -constructionCost : 0));
     const capexRow = years.map((y,i) => i === 0 ? -totalCapEx : 0);
-    html += row('Total CapEx (Year 0)', capexRow);
+    html += row('Total CapEx (Year 0)', capexRow, 'subtotal');
 
     // Cumulative CF
     html += sectionRow('CASH FLOW');
