@@ -124,6 +124,7 @@
         .page-hero h1 {
             font-size: clamp(1.8rem, 4vw, 2.8rem);
             font-weight: 700;
+            line-height: 1.1;
             color: #fff;
             letter-spacing: -0.03em;
             margin: 0 auto;
@@ -839,7 +840,7 @@
                         <span class="slider-label">Demand Rate</span>
                         <span class="slider-value" id="valDemandRate">$0.00</span>
                     </div>
-                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by state/utility. Electric Era's battery backed solution and energy management system typically mitigates about 70%.</div>
+                    <div class="slider-desc">Utility demand charge ($/kW/month) — varies by utility. Electric Era's battery backed solution and energy management system typically mitigates about 70%.</div>
                     <input type="range" id="sliderDemandRate" min="0" max="25" step="0.50" value="0">
                     <div class="slider-range"><span>$0</span><span>$25/kW</span></div>
                 </div>
@@ -852,14 +853,6 @@
                     <div class="slider-desc">Upfront hardware CapEx. A 4-port station with no battery costs about $200,000. <a href="https://ev-project-intake.vercel.app/" target="_blank" style="color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(248,185,24,0.4);transition:border-color 0.2s;white-space:nowrap;">Not sure? Generate a quote</a></div>
                     <input type="range" id="sliderHardware" min="100000" max="750000" step="5000" value="200000">
                     <div class="slider-range"><span>$100k</span><span>$750k</span></div>
-                </div>
-
-                <div class="slider-group">
-                    <div class="slider-header">
-                        <span class="slider-label">Design &amp; EPC</span>
-                        <span class="slider-value" style="color:var(--gold);background:rgba(248,185,24,0.1);padding:2px 10px;border-radius:6px;font-size:0.85rem;font-weight:600;">$71,500</span>
-                    </div>
-                    <div class="slider-desc">Fixed upfront cost covering site design, feasibility study, and EPC services. No recurring cost.</div>
                 </div>
 
                 <div class="slider-group">
@@ -936,7 +929,7 @@
         <!-- What's Next -->
         <div class="whats-next-card">
             <div class="whats-next-title">What's next?</div>
-            <p class="whats-next-intro">If your IRR looks good, <a href="https://electricera.tech/app/ev-project-intake" target="_blank"> generate a quote.</a></p>
+            <p class="whats-next-intro">If your IRR looks good, <a href="https://electricera.tech/app/ev-project-intake" target="_blank" rel="noopener"> generate a quote.</a></p>
 
             <p class="whats-next-intro">If your IRR isn't quite there, there are several other factors that can impact your P&amp;L:</p>
             <ul class="whats-next-list">
@@ -961,7 +954,6 @@
                     <span><strong>Low Carbon Fuel Standard (LCFS)</strong> credits</span>
                 </li>
             </ul>
-            <p class="whats-next-cta">An Electric Era representative can help you understand the total economic impact of an Electric Era EV fast charging solution.</p>
         </div>
 
         <div style="padding: 1rem 0; font-size: 0.78rem; color: var(--text-dim); text-align: center;">
