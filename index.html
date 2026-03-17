@@ -859,7 +859,7 @@
                         <span class="slider-label">Hardware Cost (Electric Era RE400 Station)</span>
                         <span class="slider-value" id="valHardware">$200k</span>
                     </div>
-                    <div class="slider-desc">Upfront hardware CapEx. A 4-port station costs about $200,000. <a href="https://ev-project-intake.vercel.app/" target="_blank" style="color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(248,185,24,0.4);transition:border-color 0.2s;white-space:nowrap;">Not sure? Generate a quote</a></div>
+                    <div class="slider-desc">Upfront hardware CapEx. A 4-port station costs about $200,000. <a href="https://electricera.tech/app/ev-project-intake" target="_blank" style="color:var(--gold);text-decoration:none;border-bottom:1px solid rgba(248,185,24,0.4);transition:border-color 0.2s;white-space:nowrap;">Not sure? Generate a quote</a></div>
                     <input type="range" id="sliderHardware" min="100000" max="1000000" step="5000" value="200000">
                     <div class="slider-range"><span>$100k</span><span>$1M</span></div>
                 </div>
@@ -1504,7 +1504,7 @@ function computeAndRenderPL() {
     html += row('Annual Sessions', years.map(y => y.annualSessions), '', fmtNum);
 
     // Revenue
-    html += sectionRow('REVENUE <span class="section-note">EV charging also drives incremental retail revenue—<a href="http://ev-charging-retail-experiences.vercel.app/" target="_blank">find out how much</a></span>');
+    html += sectionRow('REVENUE <span class="section-note">EV charging also drives incremental retail revenue—<a href="https://electricera.tech/app/retail-experience-value-calculator" target="_blank">find out how much</a></span>');
     html += row('Total Charging Revenue', years.map(y => y.grossChargingRevenue), 'subtotal');
     if (includeLCFS) {
         html += row('LCFS Credits', years.map(() => 20000));
