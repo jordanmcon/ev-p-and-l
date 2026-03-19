@@ -1541,7 +1541,7 @@ function computeAndRenderPL() {
     html += sectionRow('CASH FLOW');
     let cum = -totalCapEx;
     const cumCFs = years.map(y => { cum += y.cashFlow; return cum; });
-    html += row('Cumulative Free Cash Flow', cumCFs, 'grand-total');
+    html += row('Cumulative Free Cash Flow', cumCFs, 'grand-total', fmtCurrencyFull, true);
 
     tbody.innerHTML = html;
 
