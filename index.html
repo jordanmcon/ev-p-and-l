@@ -1323,6 +1323,7 @@ function calculateIRR(cashFlows) {
         if (Math.abs(newRate - rate) < 1e-7) { rate = newRate; break; }
         rate = newRate;
     }
+    if (!isFinite(rate) || rate < -1 || rate > 10) return NaN;
     return rate;
 }
 
@@ -1456,8 +1457,9 @@ function computeAndRenderPL() {
     const totalOpEx = years.reduce((s,y) => s + y.totalOpEx, 0);
     const totalNetProfit = years.reduce((s,y) => s + y.cashFlow, 0);
 
-    document.getElementById('m_irr').textContent = isFinite(irr) ? (irr*100).toFixed(1)+'%' : 'N/A';
-    document.getElementById('m_irr').className = 'metric-value' + (irr > 0 ? ' gold' : '');
+    const irrValid = isFinite(irr) && !isNaN(irr) && irr >= 0;
+    document.getElementById('m_irr').textContent = irrValid ? (irr*100).toFixed(1)+'%' : '<0%';
+    document.getElementById('m_irr').className = 'metric-value' + (irrValid ? ' gold' : '');
     document.getElementById('m_breakeven').textContent = breakeven !== null ? breakeven.toFixed(1)+'y' : '>10y';
     document.getElementById('m_capex').textContent = fmtCurrency(totalCapEx);
     document.getElementById('m_revenue').textContent = fmtCurrency(totalRevenue);
