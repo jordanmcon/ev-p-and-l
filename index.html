@@ -992,9 +992,9 @@
                 <div class="metric-sub">Gross charging revenue</div>
             </div>
             <div class="metric-card">
-                <div class="metric-label">10-Year Net Profit</div>
+                <div class="metric-label">10-Year Net Operating Profit</div>
                 <div class="metric-value" id="m_profit">--</div>
-                <div class="metric-sub">After all costs</div>
+                <div class="metric-sub">After all OpEx</div>
             </div>
         </div>
 
@@ -1614,7 +1614,7 @@ function computeAndRenderPL() {
 
     // Profit
     html += sectionRow('PROFIT');
-    html += row('Gross Profit', years.map(y => y.cashFlow), 'grand-total');
+    html += row('Net Operating Profit', years.map(y => y.cashFlow), 'grand-total');
 
     // CapEx rows — itemised
     html += sectionRow('CAPEX');
