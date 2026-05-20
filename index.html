@@ -972,6 +972,24 @@
             </div>
         </div>
 
+        <!-- Funding & Incentives -->
+        <div class="card">
+            <div class="card-title">Funding &amp; Incentives</div>
+            <div class="card-subtitle">Grants and subsidies reduce upfront CapEx</div>
+            <div class="slider-group" style="max-width:360px;">
+                <div class="slider-header">
+                    <span class="slider-label">Grant Amount</span>
+                </div>
+                <div class="slider-desc">One-time grant or subsidy applied against capital costs (e.g. NEVI, utility incentive)</div>
+                <div style="position:relative;display:flex;align-items:center;margin-top:0.75rem;">
+                    <span style="position:absolute;left:1.25rem;color:var(--text-muted);font-size:1rem;pointer-events:none;">$</span>
+                    <input type="number" id="inputGrant" min="0" step="1000" value="0"
+                           style="width:100%;padding:0.875rem 1.25rem 0.875rem 2rem;background:var(--bg);border:2px solid var(--border);border-radius:10px;color:var(--text);font-size:1rem;outline:none;-moz-appearance:textfield;"
+                           oninput="computeAndRenderPL()">
+                </div>
+            </div>
+        </div>
+
         <!-- Summary metrics -->
         <div class="metrics-grid" id="metricsGrid">
             <div class="metric-card featured">
@@ -1452,10 +1470,10 @@ function interpolateGridDraw(spd) {
     return t[t.length-1][1];
 }
 
-function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate, batteryCost, includeUtilityUpgrade, includeLCFS) {
+function computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate, batteryCost, includeUtilityUpgrade, includeLCFS, grantAmount) {
     const UTILITY_UPGRADE_COST = 60000;
     const utilityUpgradeCost = includeUtilityUpgrade ? UTILITY_UPGRADE_COST : 0;
-    const totalCapEx = hardwareCost + designCost + constructionCost + (batteryCost || 0) + utilityUpgradeCost;
+    const totalCapEx = Math.max(0, hardwareCost + designCost + constructionCost + (batteryCost || 0) + utilityUpgradeCost - (grantAmount || 0));
 
     // If battery selected, demand charges are mitigated by 75%
     const effectiveDemandRate = (batteryCost > 0) ? demandRate * 0.25 : demandRate;
@@ -1554,7 +1572,8 @@ function computeAndRenderPL() {
     const batteryLabel = battInfo ? battInfo.label : '';
     const includeLCFS = isLCFSState();
 
-    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate, batteryCost, true, includeLCFS);
+    const grantAmount = parseFloat(document.getElementById('inputGrant').value) || 0;
+    const result = computePL(spd, chargingPrice, elecCost, hardwareCost, designCost, constructionCost, demandRate, batteryCost, true, includeLCFS, grantAmount);
     const { years, totalCapEx, irr, breakeven, utilityUpgradeCost } = result;
 
     // Summary metrics
@@ -1640,6 +1659,9 @@ function computeAndRenderPL() {
     html += row('Construction', years.map((y,i) => i === 0 ? -constructionCost : 0));
     
     html += row('Utility Upgrade (estimate)', years.map((y,i) => i === 0 ? -utilityUpgradeCost : 0));
+    if (grantAmount > 0) {
+        html += row('Grant / Subsidy', years.map((y,i) => i === 0 ? grantAmount : 0));
+    }
     const capexRow = years.map((y,i) => i === 0 ? -totalCapEx : 0);
     html += row('Total CapEx (Year 0)', capexRow, 'subtotal');
 
