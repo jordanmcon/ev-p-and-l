@@ -834,7 +834,10 @@
                 <div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>
                 <h3 style="font-size:1.4rem;color:#fff;font-weight:600;margin-bottom:0.75rem;" id="errorTitle1">Error</h3>
                 <p style="color:var(--text-muted);margin-bottom:1.5rem;" id="errorDesc1">An error occurred.</p>
-                <button class="btn-secondary" onclick="document.getElementById('errorBox1').style.display='none';document.getElementById('address').focus();">Try another address</button>
+                <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                    <button class="btn-secondary" onclick="document.getElementById('errorBox1').style.display='none';document.getElementById('address').focus();">Try another address</button>
+                    <button class="btn-primary" id="continueWithEstimateBtn" style="display:none;" onclick="continueWithManualSPD()">Continue →</button>
+                </div>
             </div>
         </div>
 
@@ -1215,18 +1218,24 @@ document.getElementById('forecastForm').addEventListener('submit', async functio
     const coords = await displayMap(address);
     if (!coords) {
         loading.classList.remove('show');
-        document.getElementById('errorTitle1').textContent = 'Location Not Found';
-        document.getElementById('errorDesc1').textContent = 'We couldn\'t find that address. Please check it and try again.';
+        lastAddress = address;
+        forecastDailySessions = 20;
+        document.getElementById('errorTitle1').style.display = 'none';
+        document.getElementById('errorDesc1').textContent = 'We couldn\'t find that address. Continue and enter your own SPD estimate, or try a different address.';
+        document.getElementById('continueWithEstimateBtn').style.display = '';
         errBox.style.display = 'block';
         return;
     }
 
-   // Find hexagon
+    // Find hexagon
     const hex = findNearestHexagon(coords.lat, coords.lon);
     if (!hex) {
         loading.classList.remove('show');
-        document.getElementById('errorTitle1').textContent = 'Insufficient Data';
-        document.getElementById('errorDesc1').innerHTML = 'We don\'t have enough data for this location. Try another site address or contact <a href="mailto:sales@electricera.tech" style="color:var(--gold);text-decoration:none;font-weight:600;">sales@electricera.tech</a> for a consultation.';
+        lastAddress = address;
+        forecastDailySessions = 20;
+        document.getElementById('errorTitle1').style.display = 'none';
+        document.getElementById('errorDesc1').textContent = 'It looks like we don\'t have sufficient data to produce a useful forecast for this address. Continue and enter your own SPD estimate.';
+        document.getElementById('continueWithEstimateBtn').style.display = '';
         errBox.style.display = 'block';
         return;
     }
@@ -1307,6 +1316,11 @@ document.getElementById('forecastForm').addEventListener('submit', async functio
 });
 
 // ===== STEP NAV =====
+function continueWithManualSPD() {
+    document.getElementById('errorBox1').style.display = 'none';
+    goToStep2();
+}
+
 function goToStep2() {
     document.getElementById('step1').classList.remove('active');
     document.getElementById('step2').classList.add('active');
